@@ -1,0 +1,41 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.datasets import load_iris
+from sklearn.preprocessing import StandardScaler
+
+# 1. Load dataset
+iris = load_iris()
+X = iris.data
+
+# 2. Scale features
+X_scaled = StandardScaler().fit_transform(X)
+
+# 3. Build linkage matrix (Ward's method minimizes within-cluster variance)
+Z = linkage(X_scaled, method='ward')
+
+# 4. Plot dendrogram
+plt.figure(figsize=(10, 6))
+dendrogram(Z)
+plt.title("Dendrogram")
+plt.xlabel("Sample Index")
+plt.ylabel("Euclidean Distance")
+plt.show()
+
+# 5. Cut the dendrogram to form clusters
+k = 3
+clusters = fcluster(Z, k, criterion='maxclust')
+
+# 6. Alternative: directly using AgglomerativeClustering
+agg = AgglomerativeClustering(n_clusters=k, linkage='ward')
+labels = agg.fit_predict(X_scaled)
+
+print("Cluster labels:\n", labels)
+
+plt.scatter(X_scaled[:, 0], X_scaled[:, 1], c=labels, cmap='rainbow')
+plt.title("Hierarchical Clustering Result")
+plt.xlabel("Feature 1 (scaled)")
+plt.ylabel("Feature 2 (scaled)")
+plt.show()
