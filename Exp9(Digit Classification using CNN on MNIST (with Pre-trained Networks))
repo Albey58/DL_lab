@@ -1,0 +1,74 @@
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.applications import VGG16
+
+# 1. Load MNIST
+(X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
+X_train = X_train.astype('float32') / 255.0
+X_test = X_test.astype('float32') / 255.0
+X_train = X_train.reshape(-1, 28, 28, 1)
+X_test = X_test.reshape(-1, 28, 28, 1)
+y_train_cat = keras.utils.to_categorical(y_train, 10)
+y_test_cat = keras.utils.to_categorical(y_test, 10)
+
+# ----------------- Custom CNN -----------------
+cnn = keras.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Flatten(),
+    layers.Dense(128, activation='relu'),
+    layers.Dense(10, activation='softmax'),
+])
+cnn.compile(
+    optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy']
+)
+cnn.fit(
+    X_train, y_train_cat, epochs=5, batch_size=128, validation_split=0.1
+)
+cnn_loss, cnn_acc = cnn.evaluate(X_test, y_test_cat, verbose=0)
+print('Custom CNN Test Accuracy:', cnn_acc)
+
+# ----------------- VGG16 Transfer Learning -----------------
+# Resize grayscale -> 3-channel 32x32 images required by VGG16
+def prepare_for_vgg(images, size=32):
+  images = tf.image.resize(images, (size, size))
+  images = tf.image.grayscale_to_rgb(images)
+  return images.numpy()
+
+
+X_train_vgg = prepare_for_vgg(X_train[:10000])  # subset for speed
+X_test_vgg = prepare_for_vgg(X_test[:2000])
+y_train_vgg = y_train_cat[:10000]
+y_test_vgg = y_test_cat[:2000]
+
+base_model = VGG16(weights='imagenet', include_top=False, input_shape=(32, 32, 3))
+base_model.trainable = False  # freeze convolutional base
+
+vgg_model = keras.Sequential([
+    base_model,
+    layers.Flatten(),
+    layers.Dense(128, activation='relu'),
+    layers.Dense(10, activation='softmax'),
+])
+vgg_model.compile(
+    optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy']
+)
+vgg_model.fit(
+    X_train_vgg,
+    y_train_vgg,
+    epochs=5,
+    batch_size=128,
+    validation_split=0.1,
+)
+vgg_loss, vgg_acc = vgg_model.evaluate(X_test_vgg, y_test_vgg, verbose=0)
+print('VGG16 Transfer Learning Test Accuracy:', vgg_acc)
+
+print(
+    '\nComparison -> Custom CNN: {:.4f} | VGG16: {:.4f}'.format(
+        cnn_acc, vgg_acc
+    )
+)
