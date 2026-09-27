@@ -26,7 +26,6 @@ plt.show()
 
 # 5. Cut the dendrogram to form clusters
 k = 3
-clusters = fcluster(Z, k, criterion='maxclust')
 
 # 6. Alternative: directly using AgglomerativeClustering
 agg = AgglomerativeClustering(n_clusters=k, linkage='ward')
