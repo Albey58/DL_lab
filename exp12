@@ -1,0 +1,46 @@
+import numpy as np
+import pandas as pd
+import re
+from tensorflow import keras
+from tensorflow.keras.layers import Input, LSTM, Dense, Embedding
+from tensorflow.keras.models import Model
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+# 1. Load English-Hindi dataset (e.g., Kaggle "Hindi-English Truncated Corpus")
+df = pd.read_csv("english_hindi.csv")[['english_sentence', 'hindi_sentence']].dropna()
+df = df.sample(20000, random_state=42)  # use a subset for a "shallow"/light demo
+
+def clean(text):
+    text = str(text).lower()
+    text = re.sub(r'[^a-z\u0900-\u097F ]', '', text)
+    return text.strip()
+
+df['english_sentence'] = df['english_sentence'].apply(clean)
+df['hindi_sentence'] = ('sos ' + df['hindi_sentence']).apply(clean) + ' eos'
+
+# 2. Tokenize source (English) and target (Hindi)
+eng_tok = Tokenizer()
+eng_tok.fit_on_texts(df['english_sentence'])
+eng_seq = eng_tok.texts_to_sequences(df['english_sentence'])
+
+hin_tok = Tokenizer()
+hin_tok.fit_on_texts(df['hindi_sentence'])
+hin_seq = hin_tok.texts_to_sequences(df['hindi_sentence'])
+
+max_eng_len = max(len(s) for s in eng_seq)
+max_hin_len = max(len(s) for s in hin_seq)
+
+encoder_input = pad_sequences(eng_seq, maxlen=max_eng_len, padding='post')
+decoder_full = pad_sequences(hin_seq, maxlen=max_hin_len, padding='post')
+decoder_input = decoder_full[:, :-1]
+decoder_target = decoder_full[:, 1:]
+
+eng_vocab = len(eng_tok.word_index) + 1
+hin_vocab = len(hin_tok.word_index) + 1
+embed_dim, latent_dim = 128, 256
+
+# 3. Shallow Encoder (single LSTM layer)
+enc_inputs = Input(shape=(max_eng_len,))
+enc_emb = Embedding(eng_vocab, embed_dim)(enc_inputs)
+_, state_h, state_c = LSTM(latent_dim,
