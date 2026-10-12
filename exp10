@@ -1,0 +1,48 @@
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import matplotlib.pyplot as plt
+
+# 1. Load IMDB dataset
+vocab_size = 10000
+max_len = 200
+
+(X_train, y_train), (X_test, y_test) = keras.datasets.imdb.load_data(num_words=vocab_size)
+
+X_train = pad_sequences(X_train, maxlen=max_len)
+X_test = pad_sequences(X_test, maxlen=max_len)
+
+def build_model(rnn_layer):
+    model = keras.Sequential([
+        layers.Embedding(vocab_size, 32, input_length=max_len),
+        rnn_layer,
+        layers.Dense(1, activation='sigmoid')
+    ])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+models = {
+    "SimpleRNN": build_model(layers.SimpleRNN(32)),
+    "LSTM": build_model(layers.LSTM(32)),
+    "GRU": build_model(layers.GRU(32))
+}
+
+histories = {}
+for name, model in models.items():
+    print(f"\nTraining {name} ...")
+    hist = model.fit(X_train, y_train, epochs=5, batch_size=128,
+                     validation_split=0.2, verbose=2)
+    histories[name] = hist
+    loss, acc = model.evaluate(X_test, y_test, verbose=0)
+    print(f"{name} Test Accuracy: {acc:.4f}")
+
+# 2. Plot comparison
+plt.figure(figsize=(10,6))
+for name, hist in histories.items():
+    plt.plot(hist.history['val_accuracy'], label=name)
+plt.title("Validation Accuracy: RNN vs LSTM vs GRU")
+plt.xlabel("Epoch")
+plt.ylabel("Validation Accuracy")
+plt.legend()
+plt.show()
